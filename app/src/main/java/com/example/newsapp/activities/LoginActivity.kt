@@ -62,7 +62,6 @@ class LoginActivity : ComponentActivity() {
 
         val credentialManager = CredentialManager.create(this)
 
-        // Ensures elements retain their state on orientation change
         if (savedInstanceState != null) {
             val emailText = savedInstanceState.getString("emailInput")
             val passwordText = savedInstanceState.getString("passwordInput")
@@ -73,28 +72,25 @@ class LoginActivity : ComponentActivity() {
             errorMsg.text = errorText
         }
 
-        // Shows pop up window with information for Single Sign On (See SSOPopUpWindow class)
         ssoInfo.setOnClickListener {
             ssoPopUpWindow.showPopUpWindow(it)
         }
 
-        // Redirects to the Sign Up page
         signUpRedirect.setOnClickListener {
             val redirectIntent = Intent(this, AccCreationActivity::class.java)
             startActivity(redirectIntent)
         }
 
         loginBtn.setOnClickListener {
-            // Checks validity of input fields (i.e., not empty)
             val inputValidation = checkInputFields(emailTextField, passwordTextField)
 
-            if (inputValidation) { // If inputs are valid
-                auth.signInWithEmailAndPassword( // Starts firebase sign in process using the given details
+            if (inputValidation) {
+                auth.signInWithEmailAndPassword(
                     emailTextField.text.toString(),
                     passwordTextField.text.toString()
                 )
                     .addOnCompleteListener {
-                        if (it.isSuccessful) { // If the details are correct, successfully log in
+                        if (it.isSuccessful) {
                             Log.d(TAG, "signInWithEmail:success")
 
                             emailTextField.text.clear()
@@ -103,7 +99,7 @@ class LoginActivity : ComponentActivity() {
                             val validatedLoginIntent = Intent(this, NewsActivity::class.java)
                             startActivity(validatedLoginIntent)
 
-                        } else { // If details are not correct, display appropriate errors for user clarity
+                        } else {
                             Log.w(TAG, "signInWithEmail:failure", it.exception)
 
                             emailTextField.setBackgroundResource(R.drawable.error_background)
@@ -115,37 +111,31 @@ class LoginActivity : ComponentActivity() {
             }
         }
 
-        googleLogin.setOnClickListener { // On "Sign in with Google" button being pressed
-            // Gets Google ID details
+        googleLogin.setOnClickListener {
             val googleIdOption: GetGoogleIdOption = GetGoogleIdOption.Builder()
-                .setFilterByAuthorizedAccounts(false) // Don't filter by authorized accounts only
-
+                .setFilterByAuthorizedAccounts(false)
                 .setServerClientId(BuildConfig.WEB_CLIENT_ID)
-                // Gets the server client ID from properties, temporary approach to hide google client id on github
-
-                .setAutoSelectEnabled(true) // Enable auto-selecting the account if available
+                .setAutoSelectEnabled(true)
                 .build()
 
-           val request: GetCredentialRequest = GetCredentialRequest.Builder()
-               .addCredentialOption(googleIdOption) // Adds Google ID option to request
-               .build()
+            val request: GetCredentialRequest = GetCredentialRequest.Builder()
+                .addCredentialOption(googleIdOption)
+                .build()
 
             lifecycleScope.launch {
                 try {
-                    // Attempts to get credentials
                     val result = credentialManager.getCredential(
                         request = request,
                         context = this@LoginActivity
                     )
 
-                    // If successful, handled in this function
                     handleGoogleSignIn(result)
                 }
-                catch (error: NoCredentialException) { // Handles case where no google accounts are found on the device.
+                catch (error: NoCredentialException) {
                     Log.e(TAG, "Login error occurred: $error")
                     Toast.makeText(baseContext, "No google accounts found", Toast.LENGTH_SHORT).show()
                 }
-                catch (error: GetCredentialCustomException) { // Handles other errors
+                catch (error: GetCredentialCustomException) {
                     Log.e(TAG, "Login error occurred: $error")
                     Toast.makeText(baseContext, "Sorry, an error occurred!", Toast.LENGTH_SHORT).show()
                 }
@@ -153,13 +143,12 @@ class LoginActivity : ComponentActivity() {
         }
     }
 
-    // Checks the input fields to ensure that front-end input validation conditions are met
     private fun checkInputFields(emailAddressField: EditText, passwordField: EditText): Boolean {
         val emailInput = emailAddressField.text.toString().trim()
         val passwordInput = passwordField.text.toString().trim()
 
         when {
-            emailInput.isEmpty() && passwordInput.isNotEmpty() -> { // If the email field is empty but the password field is not
+            emailInput.isEmpty() && passwordInput.isNotEmpty() -> {
                 emailAddressField.setBackgroundResource(R.drawable.error_background)
                 errorMsg.text = getString(R.string.email_address_field_is_empty)
 
@@ -167,7 +156,7 @@ class LoginActivity : ComponentActivity() {
 
                 return false
             }
-            emailInput.isNotEmpty() && passwordInput.isEmpty() -> { // If the password field is empty but the email field is not
+            emailInput.isNotEmpty() && passwordInput.isEmpty() -> {
                 passwordField.setBackgroundResource(R.drawable.error_background)
                 errorMsg.text = getString(R.string.password_field_is_empty)
 
@@ -175,14 +164,14 @@ class LoginActivity : ComponentActivity() {
 
                 return false
             }
-            emailInput.isEmpty() && passwordInput.isEmpty() -> { // If both fields are empty
+            emailInput.isEmpty() && passwordInput.isEmpty() -> {
                 emailAddressField.setBackgroundResource(R.drawable.error_background)
                 passwordField.setBackgroundResource(R.drawable.error_background)
                 errorMsg.text = getString(R.string.email_and_password_fields_are_empty)
 
                 return false
             }
-            else -> { // If none of the above conditions are true, then the inputs are valid
+            else -> {
                 emailAddressField.setBackgroundResource(R.drawable.rounded_corner)
                 passwordField.setBackgroundResource(R.drawable.rounded_corner)
                 errorMsg.text = ""
@@ -193,47 +182,43 @@ class LoginActivity : ComponentActivity() {
     }
 
     private suspend fun handleGoogleSignIn(result: GetCredentialResponse) {
-        val credential = result.credential // Gets the credentials
+        val credential = result.credential
 
-        // Ensures that credential received is a CustomCredential
         if (credential !is CustomCredential) {
             Log.e(TAG, "Unexpected type of credential")
             return
         }
 
-        // Attempts to parse the Google ID token from credential data
         val googleIdTokenCredential = try {
             withContext(Dispatchers.IO) {
                 GoogleIdTokenCredential.createFrom(credential.data)
             }
         }
-        catch (error: GoogleIdTokenParsingException) { // If parsing fails
+        catch (error: GoogleIdTokenParsingException) {
             Log.e(TAG, "Received an invalid google id token response: $error")
             return
         }
 
-        // Authenticate with Firebase using Google ID Token
         val authResult = try {
             FirebaseAuth.getInstance().signInWithCredential(
                 GoogleAuthProvider.getCredential(googleIdTokenCredential.idToken, null)
-            ).await() // Await the result of signInWithCredential
+            ).await()
         }
         catch (error: Exception) {
             Log.e(TAG, "Firebase authentication failed: $error")
-            return // If firebase auth fails
+            return
         }
 
-        if (authResult.user != null) { // If firebase auth successful and user exists
+        if (authResult.user != null) {
             Log.d(TAG, "Successfully signed in with credentials!")
 
-            val user = authResult.user!! // Retrieves the user details
+            val user = authResult.user!!
 
-            userDataManager.saveGoogleUserToFirestore(user) // Saves the user details into firestore
+            userDataManager.saveGoogleUserToFirestore(user)
 
-            // Starts the NewsActivity
             val googleLoginIntent = Intent(this, NewsActivity::class.java)
             startActivity(googleLoginIntent)
-            finish() // Ends this activity
+            finish()
         }
         else {
             Log.e(TAG, "Error occurred signing in: $authResult")
@@ -241,7 +226,13 @@ class LoginActivity : ComponentActivity() {
         }
     }
 
-    // Save data on orientation change
+    override fun onBackPressed() {
+        // If the login activity is active, we want to skip to the next activity (NewsActivity) without showing login
+        val intent = Intent(this, NewsActivity::class.java)
+        startActivity(intent)
+        finish()  // Optional: to remove the current activity from the stack
+    }
+
     override fun onSaveInstanceState(outState: Bundle) {
         outState.putString("emailInput", emailTextField.text.toString())
         outState.putString("passwordInput", passwordTextField.text.toString())

@@ -66,12 +66,16 @@ android {
 }
 
 dependencies {
+        implementation(platform("com.google.firebase:firebase-bom:32.2.2"))
+        implementation("com.google.firebase:firebase-database-ktx")
     implementation("pl.droidsonroids.gif:android-gif-drawable:1.2.22")
     implementation("androidx.credentials:credentials:1.3.0-beta02")
     implementation("androidx.credentials:credentials-play-services-auth:1.3.0-beta02")
     implementation("com.google.android.gms:play-services-identity:18.1.0")
     implementation("com.github.bumptech.glide:glide:4.12.0")
     implementation("com.google.android.gms:play-services-location:21.3.0")
+    implementation("com.google.firebase:firebase-database:21.0.0")
+    implementation("com.google.firebase:firebase-storage:21.0.1")
     annotationProcessor("com.github.bumptech.glide:compiler:4.12.0")
     implementation("com.google.firebase:firebase-auth:23.0.0")
     implementation(platform("com.google.firebase:firebase-bom:33.1.0"))
